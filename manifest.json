@@ -1,0 +1,21 @@
+{
+  "name": "أرياف المدينة للمنتجات البلدية",
+  "short_name": "أرياف المدينة",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#f8f6f0",
+  "theme_color": "#2e3d23",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "images/logoordon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "images/logoordon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
