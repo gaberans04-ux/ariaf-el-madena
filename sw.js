@@ -1,4 +1,4 @@
-const CACHE_NAME = 'aryaf-madina-v2';
+const CACHE_NAME = 'aryaf-madina-v3';
 const assetsToCache = [
   'index.html',
   'manifest.json',
