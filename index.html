@@ -245,7 +245,7 @@
             display: inline-block; 
         }
         
-        /* أزرار الأحجام (كيلو، نص كيلو، ربع كيلو) */
+        /* أزرار الأحجام */
         .sizes-row { 
             display: flex; 
             gap: 6px; 
@@ -410,7 +410,7 @@
 
         .order-type-badge { background: var(--tag-bg); border: 1px solid var(--card-border); padding: 12px; border-radius: 16px; margin: 15px 0; text-align: center; font-weight: 800; font-size: 0.95rem; color: var(--accent); }
 
-        .user-fields input { background: var(--bg); border: 1px solid var(--card-border); padding: 15px; border-radius: 14px; width: 100%; margin-bottom: 10px; color: var(--main-text); text-align: right; }
+        .user-fields select, .user-fields input { background: var(--bg); border: 1px solid var(--card-border); padding: 15px; border-radius: 14px; width: 100%; margin-bottom: 10px; color: var(--main-text); text-align: right; outline: none; font-size: 0.9rem; font-weight: 700; }
         .submit-btn { background: var(--accent); color: white; border: none; padding: 16px; border-radius: 16px; width: 100%; font-weight: 800; font-size: 1rem; cursor: pointer; box-shadow: 0 4px 15px rgba(46, 61, 35, 0.3); }
         .submit-btn:hover { background: var(--accent-hover); }
     </style>
@@ -507,11 +507,23 @@
 
     <div class="modal" id="cartModal" onclick="if(event.target==this) toggleCart(false)">
         <div class="modal-content">
-            <h2 style="margin-bottom: 20px; color: var(--accent);">محتويات الطلب</h2>
+            <h2 style="margin-bottom: 15px; color: var(--accent);">محتويات الطلب</h2>
             <div id="cartItemsList"></div>
-            <div style="margin: 20px 0; padding: 15px; background: var(--tag-bg); border-radius: 18px; display: flex; justify-content: space-between; border: 1px solid var(--card-border);">
-                <b>المجموع الإجمالي</b>
-                <b id="totalAmount" style="color: var(--gold-dark);">0 ج.م</b>
+            
+            <div style="margin: 15px 0; padding: 15px; background: var(--tag-bg); border-radius: 18px; display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--card-border);">
+                <div style="display: flex; justify-content: space-between;">
+                    <span>مجموع المنتجات:</span>
+                    <b id="subTotalAmount">0 ج.م</b>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span>مصاريف التوصيل:</span>
+                    <b id="deliveryFeeAmount">0 ج.م</b>
+                </div>
+                <hr style="border: 0; border-top: 1px dashed var(--card-border); margin: 4px 0;">
+                <div style="display: flex; justify-content: space-between; font-size: 1.1rem;">
+                    <b>المجموع الإجمالي:</b>
+                    <b id="totalAmount" style="color: var(--gold-dark);">0 ج.م</b>
+                </div>
             </div>
 
             <div class="order-type-badge">
@@ -521,6 +533,17 @@
             <div class="user-fields">
                 <input type="text" id="uName" placeholder="الاسم بالكامل">
                 <input type="tel" id="uPhone" placeholder="رقم الموبايل">
+                
+                <!-- قائمة اختيار مكان التوصيل -->
+                <select id="uLocation" onchange="updateCart()">
+                    <option value="" disabled selected>-- اختر مكان التوصيل --</option>
+                    <option value="الإسكندرية">الإسكندرية (70 ج.م)</option>
+                    <option value="القاهرة">القاهرة (60 ج.م)</option>
+                    <option value="الجيزة">الجيزة (60 ج.م)</option>
+                    <option value="الصعيد">محافظات الصعيد (100 ج.م)</option>
+                    <option value="أخرى">مكان آخر (100 ج.م)</option>
+                </select>
+
                 <input type="text" id="uAddr" placeholder="العنوان بالتفصيل">
             </div>
             <button class="submit-btn" onclick="sendToWA()">تأكيد وإرسال عبر واتساب</button>
@@ -531,6 +554,8 @@
         const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSXRgOiWoKeZ4ePm2kSZjqogdDnFskHgkdu9sm8cqtLlu31cHos1QF0e2rnLuoN6Bqen9ShhNcVIAvY/pub?output=csv';
         const IMAGES_PATH = "./images/"; 
         let menuData = [], cart = [];
+        let currentSubTotal = 0;
+        let deliveryFee = 0;
         let currentTotal = 0; 
         let deferredPrompt;
 
@@ -603,7 +628,6 @@
             }, intervalTime);
         }
 
-        // معالجة أسعار الأصناف بناءً على عدد الأسعار في الشيت (سعر واحد أو 3 أسعار: كيلو، نص كيلو، ربع كيلو)
         function resolveItemSizes(rawPriceCols) {
             let prices = [];
             rawPriceCols.forEach(p => {
@@ -799,10 +823,11 @@
             const badge = document.getElementById('cartBadge'); 
             badge.innerText = cart.length; 
             badge.classList.toggle('show', cart.length > 0); 
-            currentTotal = 0;
+            
+            currentSubTotal = 0;
             
             document.getElementById('cartItemsList').innerHTML = cart.map((item, idx) => {
-                currentTotal += parseFloat(item.price) || 0;
+                currentSubTotal += parseFloat(item.price) || 0;
                 return `
                 <div class="cart-item-card">
                     <img src="${item.img}" class="cart-item-img" onerror="this.src='${IMAGES_PATH}default.jpg'">
@@ -814,7 +839,25 @@
                     <span class="remove-btn" onclick="removeFromCart(${idx})">حذف</span>
                 </div>`;
             }).join('');
+
+            // حساب مصاريف التوصيل حسب المكان المختصر
+            const locationSelect = document.getElementById('uLocation');
+            const selectedLoc = locationSelect ? locationSelect.value : '';
             
+            if (selectedLoc === 'الإسكندرية') {
+                deliveryFee = 70;
+            } else if (selectedLoc === 'القاهرة' || selectedLoc === 'الجيزة') {
+                deliveryFee = 60;
+            } else if (selectedLoc === 'الصعيد' || selectedLoc === 'أخرى') {
+                deliveryFee = 100;
+            } else {
+                deliveryFee = 0;
+            }
+
+            currentTotal = currentSubTotal + deliveryFee;
+
+            document.getElementById('subTotalAmount').innerText = `${currentSubTotal} ج.م`;
+            document.getElementById('deliveryFeeAmount').innerText = `${deliveryFee} ج.م`;
             document.getElementById('totalAmount').innerText = `${currentTotal} ج.م`;
         }
 
@@ -844,18 +887,20 @@
         function sendToWA() {
             const n = document.getElementById('uName').value.trim();
             const p = document.getElementById('uPhone').value.trim();
+            const locSelect = document.getElementById('uLocation');
+            const selectedLocation = locSelect ? locSelect.value : '';
             const a = document.getElementById('uAddr').value.trim();
             
-            if (!n || !p || !a || cart.length === 0) {
-                return alert("يرجى إكمال البيانات (الاسم، الهاتف، العنوان بالتفصيل) وإضافة المنتجات للسلة أولاً");
+            if (!n || !p || !selectedLocation || !a || cart.length === 0) {
+                return alert("يرجى إكمال جميع البيانات (الاسم، الهاتف، اختيار مكان التوصيل، والعنوان بالتفصيل) وإضافة المنتجات للسلة أولاً");
             }
             
             let msg = `🌿 *طلب جديد - أرياف المدينة* 🌿\n`;
             msg += `----------------------------------\n`;
             msg += `👤 *الاسم:* ${n}\n`;
             msg += `📱 *الهاتف:* ${p}\n`;
-            msg += `📦 *نوع الطلب:* توصيل (دليفري) 🛵\n`;
-            msg += `📍 *العنوان:* ${a}\n`;
+            msg += `📍 *مكان التوصيل:* ${selectedLocation} (${deliveryFee} ج.م)\n`;
+            msg += `🏠 *العنوان بالتفصيل:* ${a}\n`;
             msg += `----------------------------------\n`;
             msg += `🛒 *المنتجات المطلوبة:*\n\n`;
             
@@ -868,6 +913,8 @@
             }).join('\n\n') + `\n`;
             
             msg += `----------------------------------\n`;
+            msg += `📦 مجموع المنتجات: ${currentSubTotal} ج.م\n`;
+            msg += `🛵 مصاريف التوصيل: ${deliveryFee} ج.م\n`;
             msg += `💰 *الإجمالي النهائي:* *${currentTotal} ج.م*\n`;
             msg += `----------------------------------\n`;
             msg += `شكرًا لتسوقكم من أرياف المدينة للمنتجات البلدية ❤️`;
